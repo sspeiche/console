@@ -26,6 +26,13 @@ describe('Modal Annotations', () => {
     const newContent = _.defaultsDeep({}, {metadata: {name: WORKLOAD_NAME, labels: {['lbl-modal']: testName}}}, safeLoad(content));
     await yamlView.setContent(safeDump(newContent));
     await crudView.saveChangesBtn.click();
+    expect(yamlView.errorMessage.isPresent()).toBe(false);
+
+    // Wait for the resource to be created.
+    await browser.wait(until.presenceOf(crudView.actionsDropdown));
+    expect(browser.getCurrentUrl()).toContain(`/${testName}`);
+    expect(crudView.resourceTitle.getText()).toEqual(testName);
+
     checkLogs();
     checkErrors();
   });
