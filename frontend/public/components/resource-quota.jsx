@@ -6,26 +6,41 @@ import { Cog, SectionHeading, navFactory, ResourceCog, ResourceLink, ResourceSum
 import { FLAGS, connectToFlags, flagPending } from '../features';
 import { LoadingBox } from './utils/status-box';
 import { referenceForModel } from '../module/k8s';
-import { ResourceQuotaModel, ClusterResourceQuotaModel } from '../models';
+import { AppliedClusterResourceQuotaModel, ClusterResourceQuotaModel, ResourceQuotaModel } from '../models';
 
 const menuActions = [Cog.factory.ModifyLabels, Cog.factory.ModifyAnnotations, Cog.factory.Edit, Cog.factory.Delete];
 
-const quotaKind = quota => quota.metadata.namespace ? referenceForModel(ResourceQuotaModel) : referenceForModel(ClusterResourceQuotaModel);
+const resourceQuotaReference = referenceForModel(ResourceQuotaModel);
+const clusterQuotaReference = referenceForModel(ClusterResourceQuotaModel);
+const appliedClusterQuotaReference = referenceForModel(AppliedClusterResourceQuotaModel);
+
+const quotaKind = (quota, canListClusterQuota) => {
+  if (quota.metadata.namespace) {
+    return resourceQuotaReference;
+  }
+
+  // We all
+  return canListClusterQuota ? clusterQuotaReference : appliedClusterQuotaReference;
+};
 
 const Header = props => <ListHeader>
   <ColHead {...props} className="col-md-5 col-xs-6" sortField="metadata.name">Name</ColHead>
   <ColHead {...props} className="col-md-7 col-xs-6" sortField="metadata.namespace">Namespace</ColHead>
 </ListHeader>;
 
-const Row = ({obj: rq}) => <div className="row co-resource-list__item">
-  <div className="col-md-5 col-xs-6 co-resource-link-wrapper">
-    <ResourceCog actions={menuActions} kind={quotaKind(rq)} resource={rq} />
-    <ResourceLink kind={quotaKind(rq)} name={rq.metadata.name} namespace={rq.metadata.namespace} className="co-resource-link__resource-name" />
-  </div>
-  <div className="col-md-7 col-xs-6 co-break-word">
-    {rq.metadata.namespace ? <ResourceLink kind="Namespace" name={rq.metadata.namespace} title={rq.metadata.namespace} /> : 'all'}
-  </div>
-</div>;
+const Row_ = ({obj: rq, flags}) => {
+  const kind = quotaKind(rq, flags[FLAGS.CAN_LIST_CLUSTER_QUOTA]);
+  return <div className="row co-resource-list__item">
+    <div className="col-md-5 col-xs-6 co-resource-link-wrapper">
+      <ResourceCog actions={menuActions} kind={kind} resource={rq} />
+      <ResourceLink kind={kind} name={rq.metadata.name} namespace={rq.metadata.namespace} className="co-resource-link__resource-name" />
+    </div>
+    <div className="col-md-7 col-xs-6 co-break-word">
+      {rq.metadata.namespace ? <ResourceLink kind="Namespace" name={rq.metadata.namespace} title={rq.metadata.namespace} /> : 'all'}
+    </div>
+  </div>;
+};
+const Row = connectToFlags(FLAGS.CAN_LIST_CLUSTER_QUOTA)(Row_);
 
 const Details = ({obj: rq}) => <React.Fragment>
   <div className="co-m-pane__body">
@@ -46,16 +61,19 @@ export const quotaType = quota => {
 // Split each resource quota into one row per subject
 export const flatten = resources => _.flatMap(resources, resource => _.compact(resource.data));
 
-export const ResourceQuotasPage = connectToFlags(FLAGS.OPENSHIFT)(({namespace, flags}) => {
+export const ResourceQuotasPage = connectToFlags(FLAGS.OPENSHIFT, FLAGS.CAN_LIST_CLUSTER_QUOTA)(({namespace, flags}) => {
+  if (flagPending(flags[FLAGS.OPENSHIFT]) || flagPending(flags[FLAGS.CAN_LIST_CLUSTER_QUOTA])) {
+    return <LoadingBox />;
+  }
 
   let resources = [{kind: 'ResourceQuota', namespaced: true}];
   let rowFilters = null;
-
-  if (flagPending(flags[FLAGS.OPENSHIFT])) {
-    return <LoadingBox />;
-  }
   if (flags[FLAGS.OPENSHIFT]) {
-    resources.push({kind: 'AppliedClusterResourceQuota', namespaced: false, optional: true});
+    if (flags[FLAGS.CAN_LIST_CLUSTER_QUOTA]) {
+      resources.push({kind: 'ClusterResourceQuota', namespaced: false});
+    } else {
+      resources.push({kind: 'AppliedClusterResourceQuota', namespaced: true});
+    }
     rowFilters = [{
       type: 'role-kind',
       selected: ['cluster', 'namespace'],
