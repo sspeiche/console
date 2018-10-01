@@ -4,9 +4,17 @@ import * as PropTypes from 'prop-types';
 import * as classnames from 'classnames';
 import { Link } from 'react-router-dom';
 import { ListView } from 'patternfly-react';
+import { connect } from 'react-redux';
 
-import { pluralize, ResourceIcon, resourceObjPath, resourcePath } from './utils';
+import store from '../redux';
+import { UIActions } from '../ui/ui-actions';
 import { Tooltip } from './utils/tooltip';
+import {
+  pluralize,
+  ResourceIcon,
+  resourceObjPath,
+  resourcePath
+} from './utils';
 
 const ControllerLink = ({controller}) => {
   const { obj, revision } = controller;
@@ -83,15 +91,16 @@ const Alerts = ({item}) => {
   </div>;
 };
 
-const ProjectOverviewListItem = ({item, onClick, selectedItem}) => {
+const ProjectOverviewListItem = ({item, selectedUID}) => {
   const {current, obj} = item;
   const {namespace, name, uid} = obj.metadata;
-  const isSelected = uid === _.get(selectedItem, 'obj.metadata.uid', '');
+  const {kind} = obj;
+  const isSelected = selectedUID === uid;
   const className = classnames('project-overview__item', {'project-overview__item--selected': isSelected});
   const heading = <h3 className="project-overview__item-heading">
     <span className="co-resource-link co-resource-link-truncate">
-      <ResourceIcon kind={obj.kind} />
-      <Link to={resourcePath(obj.kind, name, namespace)} className="co-resource-link__resource-name">
+      <ResourceIcon kind={kind} />
+      <Link to={resourcePath(kind, name, namespace)} className="co-resource-link__resource-name">
         {name}
       </Link>
       {current && <React.Fragment>,&nbsp;<ControllerLink controller={current} /></React.Fragment>}
@@ -103,7 +112,7 @@ const ProjectOverviewListItem = ({item, onClick, selectedItem}) => {
     <Status item={item} />
   </div>;
   return <ListView.Item
-    onClick={() => isSelected ? onClick({}) : onClick(item)}
+    onClick={() => store.dispatch(UIActions.selectOverviewItem(isSelected ? '' : uid))}
     className={className}
     heading={heading}
     additionalInfo={[additionalInfo]}
@@ -120,13 +129,12 @@ ProjectOverviewListItem.propTypes = {
   }).isRequired
 };
 
-const ProjectOverviewList = ({items, onClickItem, selectedItem}) => {
+const ProjectOverviewList = ({items, selectedUID}) => {
   const listItems = _.map(items, (item) =>
     <ProjectOverviewListItem
-      key={item.obj.metadata.uid}
       item={item}
-      onClick={onClickItem}
-      selectedItem={selectedItem}
+      key={item.obj.metadata.uid}
+      selectedUID={selectedUID}
     />
   );
   return <ListView className="project-overview__list">
@@ -134,17 +142,16 @@ const ProjectOverviewList = ({items, onClickItem, selectedItem}) => {
   </ListView>;
 };
 
-
 ProjectOverviewList.displayName = 'ProjectOverviewList';
 
 ProjectOverviewList.propTypes = {
   items: PropTypes.array.isRequired
 };
 
-const ProjectOverviewGroup = ({heading, items, onClickItem, selectedItem}) =>
+const ProjectOverviewGroup = ({heading, items, selectedUID}) =>
   <div className="project-overview__group">
     {heading && <h2 className="project-overview__group-heading">{heading}</h2>}
-    <ProjectOverviewList items={items} onClickItem={onClickItem} selectedItem={selectedItem} />
+    <ProjectOverviewList items={items} selectedUID={selectedUID} />
   </div>;
 
 
@@ -155,18 +162,21 @@ ProjectOverviewGroup.propTypes = {
   items: PropTypes.array.isRequired
 };
 
-export const ProjectOverview = ({selectedItem, groups, onClickItem}) =>
+const stateToProps = ({UI}) => {
+  return {selectedUID: UI.getIn(['overview', 'selectedUID'])};
+};
+
+export const ProjectOverview = connect(stateToProps)(({groups, selectedUID}) =>
   <div className="project-overview">
     {_.map(groups, ({name, items, index}) =>
       <ProjectOverviewGroup
         key={name || `_${index}`}
         heading={name}
         items={items}
-        onClickItem={onClickItem}
-        selectedItem={selectedItem}
+        selectedUID={selectedUID}
       />
     )}
-  </div>;
+  </div>);
 
 ProjectOverview.displayName = 'ProjectOverview';
 

@@ -151,6 +151,6 @@ export const resourceListPages = ImmutableMap<GroupVersionKind | string, () => P
 
 export const resourceOverviewPages = ImmutableMap<GroupVersionKind | string, () => Promise<React.ComponentType<any>>>()
   .set(referenceForModel(DaemonSetModel), () => import('./daemon-set' /* webpackChunkNmae: "daemon-set"*/).then(m => m.DaemonSetOverview))
-  .set(referenceForModel(DeploymentModel), () => import('./deployment' /* webpackChunkNmae: "deployment"*/).then(m => m.DeploymentOverview))
-  .set(referenceForModel(DeploymentConfigModel), () => import('./deployment-config' /* webpackChunkNmae: "deployment-config"*/).then(m => m.DeploymentConfigOverview))
+  .set(referenceForModel(DeploymentModel), () => import('./deployment-overview' /* webpackChunkNmae: "deployment"*/).then(m => m.DeploymentOverviewPage))
+  .set(referenceForModel(DeploymentConfigModel), () => import('./deployment-config-overview' /* webpackChunkNmae: "deployment-config"*/).then(m => m.DeploymentConfigOverviewPage))
   .set(referenceForModel(StatefulSetModel), () => import('./stateful-set' /* webpackChunkNmae: "stateful-set"*/).then(m => m.StatefulSetOverview));

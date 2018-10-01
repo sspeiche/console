@@ -1,7 +1,7 @@
 import * as React from 'react';
 
+import { StatefulSetModel } from '../models';
 import { ResourceEventStream } from './events';
-import { connectToModel } from '../kinds';
 import {
   DetailsPage,
   List,
@@ -62,11 +62,11 @@ export const StatefulSetsDetailsPage = props => <DetailsPage
   pages={pages}
 />;
 
-export const StatefulSetOverview = connectToModel(({kindObj, resource: ss}) =>
+export const StatefulSetOverview = ({item: {obj: ss}}) =>
   <div className="overview__sidebar-pane resource-overview">
     <ResourceOverviewHeading
       actions={menuActions}
-      kindObj={kindObj}
+      kindObj={StatefulSetModel}
       resource={ss}
     />
     <div className="overview__sidebar-pane-body resource-overview__body">
@@ -74,4 +74,4 @@ export const StatefulSetOverview = connectToModel(({kindObj, resource: ss}) =>
         <ResourceSummary resource={ss} />
       </div>
     </div>
-  </div>);
+  </div>;

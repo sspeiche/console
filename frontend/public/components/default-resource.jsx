@@ -71,16 +71,16 @@ export const DefaultDetailsPage = props => {
 };
 DefaultDetailsPage.displayName = 'DefaultDetailsPage';
 
-export const DefaultOverviewPage = connectToModel( ({kindObj: kindObject, resource}) =>
+export const DefaultOverviewPage = connectToModel( ({kindObj: kindObject, item}) =>
   <div className="overview__sidebar-pane resource-overview">
     <ResourceOverviewHeading
       actions={menuActions}
       kindObj={kindObject}
-      resource={resource}
+      resource={item.obj}
     />
     <div className="overview__sidebar-pane-body resource-overview__body">
       <div className="resource-overview__summary">
-        <ResourceSummary resource={resource} />
+        <ResourceSummary resource={item.obj} />
       </div>
     </div>
   </div>

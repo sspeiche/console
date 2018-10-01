@@ -70,10 +70,10 @@ export const ResourceDetailsPage = connectToPlural((props: ResourceDetailsPagePr
   </React.Fragment>;
 });
 
-export const ResourceOverviewPage = connectToModel(({kind, kindObj, resource}) => {
+export const ResourceOverviewPage = connectToModel(({kindObj, item}) => {
   const ref = referenceForModel(kindObj);
   const loader = resourceOverviewPages.get(ref, () => Promise.resolve(DefaultOverviewPage));
-  return <AsyncComponent loader={loader} kind={kind} resource={resource} />;
+  return <AsyncComponent loader={loader} kindObj={kindObj} item={item} />;
 });
 
 export type ResourceListPageProps = {

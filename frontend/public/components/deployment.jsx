@@ -6,7 +6,6 @@ import { configureUpdateStrategyModal } from './modals';
 import { Conditions } from './conditions';
 import { ResourceEventStream } from './events';
 import { formatDuration } from './utils/datetime';
-import { connectToModel } from '../kinds';
 import {
   DetailsPage,
   List,
@@ -22,7 +21,6 @@ import {
   LoadingInline,
   navFactory,
   pluralize,
-  ResourceOverviewHeading,
   ResourceSummary,
   SectionHeading
 } from './utils';
@@ -34,14 +32,14 @@ const UpdateStrategy = (kind, deployment) => ({
   callback: () => configureUpdateStrategyModal({deployment}),
 });
 
-const menuActions = [
+export const menuActions = [
   ModifyCount,
   UpdateStrategy,
   EditEnvironment,
   ...common,
 ];
 
-const DeploymentDetailsList = ({deployment}) => {
+export const DeploymentDetailsList = ({deployment}) => {
   const isRecreate = (deployment.spec.strategy.type === 'Recreate');
   const progressDeadlineSeconds = _.get(deployment, 'spec.progressDeadlineSeconds');
   return <dl className="co-m-pane__details">
@@ -57,29 +55,6 @@ const DeploymentDetailsList = ({deployment}) => {
     <dd>{deployment.spec.minReadySeconds ? pluralize(deployment.spec.minReadySeconds, 'second') : 'Not Configured'}</dd>
   </dl>;
 };
-
-export const DeploymentOverview = connectToModel(({kindObj, resource: deployment}) =>
-  <div className="overview__sidebar-pane resource-overview">
-    <ResourceOverviewHeading
-      actions={menuActions}
-      kindObj={kindObj}
-      resource={deployment}
-    />
-    <div className="overview__sidebar-pane-body resource-overview__body">
-      <div className="resource-overview__pod-counts">
-        <DeploymentPodCounts resource={deployment} resourceKind={DeploymentModel} />
-      </div>
-      <div className="resource-overview__summary">
-        <ResourceSummary resource={deployment}>
-          <dt>Status</dt>
-          <dd>{deployment.status.availableReplicas === deployment.status.updatedReplicas ? <span>Active</span> : <div><span className="co-icon-space-r"><LoadingInline /></span> Updating</div>}</dd>
-        </ResourceSummary>
-      </div>
-      <div className="resource-overview__details">
-        <DeploymentDetailsList deployment={deployment} />
-      </div>
-    </div>
-  </div>);
 
 const DeploymentDetails = ({obj: deployment}) => {
   return <React.Fragment>

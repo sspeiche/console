@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { Link } from 'react-router-dom';
 
-import { connectToModel } from '../kinds';
 import {
   ColHead,
   DetailsPage,
@@ -24,6 +23,7 @@ import {
   SectionHeading,
   Selector
 } from './utils';
+import { DaemonSetModel } from '../models';
 
 const menuActions = [Cog.factory.EditEnvironment, ...Cog.factory.common];
 
@@ -64,11 +64,11 @@ const DaemonSetDetailsList = ({ds}) =>
     <dd>{ds.status.desiredNumberScheduled || '-'}</dd>
   </dl>;
 
-export const DaemonSetOverview = connectToModel(({kindObj, resource: ds}) =>
+export const DaemonSetOverview = ({item: {obj: ds}}) =>
   <div className="co-m-pane resource-overview">
     <ResourceOverviewHeading
       actions={menuActions}
-      kindObj={kindObj}
+      kindObj={DaemonSetModel}
       resource={ds}
     />
     <div className="co-m-pane__body resource-overview__body">
@@ -79,7 +79,7 @@ export const DaemonSetOverview = connectToModel(({kindObj, resource: ds}) =>
         <DaemonSetDetailsList ds={ds} />
       </div>
     </div>
-  </div>);
+  </div>;
 
 const Details = ({obj: daemonset}) => <div className="co-m-pane__body">
   <SectionHeading text="Daemon Set Overview" />
