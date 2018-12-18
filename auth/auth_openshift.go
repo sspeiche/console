@@ -113,12 +113,11 @@ func (o *openShiftAuth) login(w http.ResponseWriter, token *oauth2.Token) (*logi
 	// only logic using the OAuth2 implicit flow.
 	// https://tools.ietf.org/html/rfc6749#section-4.2
 	cookie := http.Cookie{
-		Name:     openshiftSessionCookieName,
-		Value:    ls.rawToken,
-		MaxAge:   int(expiresIn),
-		HttpOnly: true,
-		Path:     o.cookiePath,
-		Secure:   o.secureCookies,
+		Name:   openshiftSessionCookieName,
+		Value:  ls.rawToken,
+		MaxAge: int(expiresIn),
+		Path:   o.cookiePath,
+		Secure: o.secureCookies,
 	}
 
 	http.SetCookie(w, &cookie)

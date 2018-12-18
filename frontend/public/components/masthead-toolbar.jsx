@@ -1,14 +1,25 @@
 import * as React from 'react';
 import * as _ from 'lodash-es';
 import { connect } from 'react-redux';
+import { copy } from 'copy-to-clipboard';
 import { ArrowCircleUpIcon, QuestionCircleIcon, ThIcon } from '@patternfly/react-icons';
 import { Button, Dropdown, DropdownToggle, DropdownSeparator, DropdownItem, KebabToggle, Toolbar, ToolbarGroup, ToolbarItem } from '@patternfly/react-core';
 
+import { getSessionToken } from '../co-fetch';
 import { FLAGS, stateToProps as flagStateToProps, flagPending } from '../features';
 import { authSvc } from '../module/auth';
 import { history } from './utils';
 import { openshiftHelpBase } from './utils/documentation';
 import { AboutModal } from './about-modal';
+
+const apiServerURL = window.SERVER_FLAGS.apiServer;
+
+const copyOpenShiftLogin = () => {
+  const token = getSessionToken();
+  const loginCommand = `oc login ${apiServerURL} ${token ? `--token=${token}` : ''}`;
+  // TODO: Show message
+  copy(loginCommand);
+};
 
 class MastheadToolbar_ extends React.Component {
   constructor(props) {
@@ -152,6 +163,13 @@ class MastheadToolbar_ extends React.Component {
           authSvc.logout();
         }
       };
+
+      if (flags[FLAGS.OPENSHIFT] && apiServerURL) {
+        actions.push({
+          label: 'Copy Login Command',
+          callback: copyOpenShiftLogin,
+        });
+      }
 
       if (mobile) {
         actions.push({
