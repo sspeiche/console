@@ -1,6 +1,13 @@
 package: github.com/openshift/console
 testImports: []
 import:
+- package: k8s.io/apimachinery
+  version: kubernetes-1.12.5
+- package: k8s.io/client-go
+  version: kubernetes-1.12.5
+# don't print ugly
+- package: github.com/golang/glog
+  version: 44145f04b68cf362d9c4df2182967c2275eaefed
 - package: gopkg.in/square/go-jose.v2
   version: 296c7f1463ec9b712176dc804dea0173d06dc728
 - package: github.com/coreos/go-oidc

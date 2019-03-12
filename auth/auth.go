@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -18,7 +19,9 @@ import (
 	"github.com/coreos/dex/api"
 	oidc "github.com/coreos/go-oidc"
 	"github.com/coreos/pkg/capnslog"
+	"github.com/golang/glog"
 	"golang.org/x/oauth2"
+	"k8s.io/client-go/transport"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -105,10 +108,17 @@ type Config struct {
 	SecureCookies bool
 }
 
+func init() {
+	flag.CommandLine.Lookup("v").Value.Set("100")
+	flag.CommandLine.Lookup("stderrthreshold").Value.Set("INFO")
+	glog.Flush()
+}
+
 func newHTTPClient(issuerCA string, includeSystemRoots bool) (*http.Client, error) {
 	if issuerCA == "" {
 		return http.DefaultClient, nil
 	}
+
 	data, err := ioutil.ReadFile(issuerCA)
 	if err != nil {
 		return nil, fmt.Errorf("load issuer CA file %s: %v", issuerCA, err)
@@ -128,11 +138,11 @@ func newHTTPClient(issuerCA string, includeSystemRoots bool) (*http.Client, erro
 		return nil, fmt.Errorf("file %s contained no CA data", issuerCA)
 	}
 	return &http.Client{
-		Transport: &http.Transport{
+		Transport: transport.DebugWrappers(&http.Transport{
 			TLSClientConfig: &tls.Config{
 				RootCAs: certPool,
 			},
-		},
+		}),
 		Timeout: time.Second * 5,
 	}, nil
 }
