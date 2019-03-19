@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	_ "net/http/pprof"
 	"net/url"
 	"os"
 	"strings"
@@ -427,6 +428,11 @@ func main() {
 		Addr:    listenURL.Host,
 		Handler: srv.HTTPHandler(),
 	}
+
+	// DO NOT MERGE - pprof
+	go func() {
+		log.Println(http.ListenAndServe(":6060", nil))
+	}()
 
 	log.Infof("Binding to %s...", httpsrv.Addr)
 	if listenURL.Scheme == "https" {
