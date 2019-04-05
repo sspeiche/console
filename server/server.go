@@ -54,6 +54,8 @@ type jsGlobals struct {
 	PrometheusTenancyBaseURL string `json:"prometheusTenancyBaseURL"`
 	AlertManagerBaseURL      string `json:"alertManagerBaseURL"`
 	Branding                 string `json:"branding"`
+	CustomProductName        string `json:"customProductName"`
+	CustomLogoImage          string `json:"customLogoImage"`
 	DocumentationBaseURL     string `json:"documentationBaseURL"`
 	GoogleTagManagerID       string `json:"googleTagManagerID"`
 	LoadTestFactor           int    `json:"loadTestFactor"`
@@ -72,6 +74,8 @@ type Server struct {
 	KubeAPIServerURL     string
 	DocumentationBaseURL *url.URL
 	Branding             string
+	CustomProductName    string
+	CustomLogoImage      string
 	GoogleTagManagerID   string
 	LoadTestFactor       int
 	DexClient            api.DexClient
@@ -108,13 +112,17 @@ func (s *Server) HTTPHandler() http.Handler {
 
 	fn := func(loginInfo auth.LoginJSON, successURL string, w http.ResponseWriter) {
 		jsg := struct {
-			auth.LoginJSON  `json:",inline"`
-			LoginSuccessURL string `json:"loginSuccessURL"`
-			Branding        string `json:"branding"`
+			auth.LoginJSON     `json:",inline"`
+			LoginSuccessURL    string `json:"loginSuccessURL"`
+			Branding           string `json:"branding"`
+			CustomProductName  string `json:"customProductName"`
+			CustomLogoImage    string `json:"customLogoImage"`
 		}{
-			LoginJSON:       loginInfo,
-			LoginSuccessURL: successURL,
-			Branding:        s.Branding,
+			LoginJSON:          loginInfo,
+			LoginSuccessURL:    successURL,
+			Branding:           s.Branding,
+			CustomProductName:  s.CustomProductName,
+			CustomLogoImage:    s.CustomLogoImage,
 		}
 
 		tpl := template.New(tokenizerPageTemplateName)
@@ -254,6 +262,8 @@ func (s *Server) indexHandler(w http.ResponseWriter, r *http.Request) {
 		LogoutRedirect:       s.LogoutRedirect.String(),
 		KubeAPIServerURL:     s.KubeAPIServerURL,
 		Branding:             s.Branding,
+		CustomProductName:    s.CustomProductName,
+		CustomLogoImage:      s.CustomLogoImage,
 		DocumentationBaseURL: s.DocumentationBaseURL.String(),
 		GoogleTagManagerID:   s.GoogleTagManagerID,
 		LoadTestFactor:       s.LoadTestFactor,

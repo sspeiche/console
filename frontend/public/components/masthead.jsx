@@ -39,6 +39,12 @@ export const getBrandingDetails = () => {
       logoImg = okdLogoImg;
       productName = 'OKD';
   }
+  if (window.SERVER_FLAGS.customLogoImage) {
+    logoImg = window.SERVER_FLAGS.customLogoImage;
+  }
+  if (window.SERVER_FLAGS.customProductName) {
+    productName = window.SERVER_FLAGS.customProductName;
+  }
   return { logoImg, productName };
 };
 

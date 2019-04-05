@@ -29,6 +29,7 @@ class AboutModal_ extends React.Component {
     const {isOpen, closeAboutModal} = this.props;
     const {kubernetesVersion} = this.state;
     const details = getBrandingDetails();
+    const customBranding = window.SERVER_FLAGS.customLogoImage || window.SERVER_FLAGS.customProductName;
 
     return (
       <PfAboutModal
@@ -38,8 +39,8 @@ class AboutModal_ extends React.Component {
         brandImageSrc={details.logoImg}
         brandImageAlt={details.productName}
       >
-        <p>OpenShift is Red Hat&apos;s container application platform that allows developers to quickly develop, host,
-          and scale applications in a cloud environment.</p>
+        {!customBranding && <p>OpenShift is Red Hat&apos;s container application platform that allows developers to quickly develop, host,
+          and scale applications in a cloud environment.</p>}
         <br />
         <TextContent>
           <TextList component="dl">

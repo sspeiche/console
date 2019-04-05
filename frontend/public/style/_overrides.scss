@@ -256,6 +256,13 @@ tags-input .autocomplete .suggestion-item em {
 
 // PatternFly 4 overrides
 
+// so custom logos don't grow wider than logo area
+.pf-c-about-modal-box__brand-image,
+.pf-c-brand,
+.pf-c-page__header-brand-link {
+  max-width: 190px !important;
+}
+
 // Webpack will not properly bundle the background-image from PatternFly
 @media only screen and (min-width: 576px) {
   .pf-c-about-modal-box__hero {
