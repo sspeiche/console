@@ -85,7 +85,7 @@ func main() {
 	fDexAPIHost := fs.String("dex-api-host", "", "Target host and port of the Dex API service.")
 	fBranding := fs.String("branding", "okd", "Console branding for the masthead logo and title. One of okd, openshift, ocp, online, dedicated, or azure. Defaults to okd.")
 	fCustomProductName := fs.String("custom-product-name", "", "Custom product name for console branding.")
-	fCustomLogoImage := fs.String("custom-logo-image", "", "Custom product image for console branding.")
+	fCustomLogoFile := fs.String("custom-logo-file", "", "Custom product image for console branding.")
 	fDocumentationBaseURL := fs.String("documentation-base-url", "", "The base URL for documentation links.")
 	fGoogleTagManagerID := fs.String("google-tag-manager-id", "", "Google Tag Manager ID. External analytics are disabled if this is not set.")
 
@@ -154,8 +154,11 @@ func main() {
 		flagFatalf("branding", "value must be one of okd, openshift, ocp, online, dedicated, or azure")
 	}
 
-	customProductName := *fCustomProductName
-	customLogoImage := *fCustomLogoImage
+	if *fCustomLogoFile != "" {
+		if _, err := os.Stat(*fCustomLogoFile); err != nil {
+			log.Fatalf("could not read logo file: %v", err)
+		}
+	}
 
 	srv := &server.Server{
 		PublicDir:            *fPublicDir,
@@ -164,8 +167,8 @@ func main() {
 		LogoutRedirect:       logoutRedirect,
 		TectonicCACertFile:   caCertFilePath,
 		Branding:             branding,
-		CustomProductName:    customProductName,
-		CustomLogoImage:      customLogoImage,
+		CustomProductName:    *fCustomProductName,
+		CustomLogoFile:       *fCustomLogoFile,
 		DocumentationBaseURL: documentationBaseURL,
 		GoogleTagManagerID:   *fGoogleTagManagerID,
 		LoadTestFactor:       *fLoadTestFactor,

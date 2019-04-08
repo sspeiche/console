@@ -29,7 +29,7 @@ class AboutModal_ extends React.Component {
     const {isOpen, closeAboutModal} = this.props;
     const {kubernetesVersion} = this.state;
     const details = getBrandingDetails();
-    const customBranding = window.SERVER_FLAGS.customLogoImage || window.SERVER_FLAGS.customProductName;
+    const customBranding = window.SERVER_FLAGS.customLogoURL || window.SERVER_FLAGS.customProductName;
 
     return (
       <PfAboutModal
