@@ -33,7 +33,6 @@ const IdentityProviders: React.SFC<IdentityProvidersProps> = ({identityProviders
           <tr>
             <th>Name</th>
             <th>Type</th>
-            <th>Mapping Method</th>
           </tr>
         </thead>
         <tbody>
@@ -41,7 +40,6 @@ const IdentityProviders: React.SFC<IdentityProvidersProps> = ({identityProviders
             <tr key={idp.name}>
               <td>{idp.name}</td>
               <td>{idp.type}</td>
-              <td>{idp.mappingMethod || 'claim'}</td>
             </tr>
           ))}
         </tbody>

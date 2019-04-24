@@ -82,7 +82,6 @@ export class AddOpenIDPage extends PromiseComponent {
     const idp: any = {
       name,
       type: 'OpenID',
-      mappingMethod: 'claim',
       openID: {
         clientID,
         clientSecret: {

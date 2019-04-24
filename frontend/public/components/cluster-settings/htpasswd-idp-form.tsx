@@ -52,7 +52,6 @@ export class AddHTPasswdPage extends PromiseComponent {
     const htpasswd = {
       name,
       type: 'HTPasswd',
-      mappingMethod: 'claim',
       htpasswd: {
         fileData: {
           name: secretName,
