@@ -267,6 +267,7 @@ export class ColHead extends React.Component<ColHeadProps> {
     currentSortOrder: PropTypes.string,
     sortField: PropTypes.string,
     sortFunc: PropTypes.string,
+    wrap: PropTypes.bool,
   };
 
   componentWillMount() {
@@ -289,8 +290,9 @@ export class ColHead extends React.Component<ColHeadProps> {
       currentSortOrder,
       sortField,
       sortFunc,
+      wrap,
     } = this.props;
-    const className = classNames(this.props.className, 'text-nowrap');
+    const className = classNames(this.props.className, {'text-nowrap': !wrap});
     if (!sortField && !sortFunc) {
       return <div className={className}>{children}</div>;
     }
@@ -556,6 +558,7 @@ export type ColHeadProps = {
   currentSortOrder?: string;
   sortField?: string;
   sortFunc?: string;
+  wrap?: boolean;
 };
 
 export type ListInnerProps = {
