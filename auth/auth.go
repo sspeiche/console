@@ -52,7 +52,7 @@ var (
 )
 
 type Authenticator struct {
-	authFunc func() (*oauth2.Config, loginMethod)
+	authFunc func() (*oauth2.Config, loginMethod, error)
 
 	clientFunc func() *http.Client
 
@@ -170,95 +170,70 @@ func newHTTPClient(issuerCA string, includeSystemRoots bool) (*http.Client, erro
 // NewAuthenticator initializes an Authenticator struct. It blocks until the authenticator is
 // able to contact the provider.
 func NewAuthenticator(ctx context.Context, c *Config) (*Authenticator, error) {
-	// Retry connecting to the identity provider every 10s for 5 minutes
-	const (
-		backoff  = time.Second * 10
-		maxSteps = 30
-	)
-	steps := 0
+	a, err := newUnstartedAuthenticator(c)
+	if err != nil {
+		return nil, err
+	}
 
-	for {
-		a, err := newUnstartedAuthenticator(c)
-		if err != nil {
-			return nil, err
-		}
-
-		var authSourceFunc func() (oauth2.Endpoint, loginMethod, error)
-		switch c.AuthSource {
-		case AuthSourceOpenShift:
-			a.userFunc = getOpenShiftUser
-			authSourceFunc = func() (oauth2.Endpoint, loginMethod, error) {
-				// Use the k8s CA for OAuth metadata discovery.
-				// Don't include system roots when talking to the API server.
-				k8sClient, errK8Client := newHTTPClient(c.K8sCA, false)
-				if errK8Client != nil {
-					return oauth2.Endpoint{}, nil, errK8Client
-				}
-
-				return newOpenShiftAuth(ctx, &openShiftConfig{
-					k8sClient:     k8sClient,
-					oauthClient:   a.clientFunc(),
-					issuerURL:     c.IssuerURL,
-					cookiePath:    c.CookiePath,
-					secureCookies: c.SecureCookies,
-				})
+	var authSourceFunc func() (oauth2.Endpoint, loginMethod, error)
+	switch c.AuthSource {
+	case AuthSourceOpenShift:
+		a.userFunc = getOpenShiftUser
+		authSourceFunc = func() (oauth2.Endpoint, loginMethod, error) {
+			// Use the k8s CA for OAuth metadata discovery.
+			// Don't include system roots when talking to the API server.
+			k8sClient, errK8Client := newHTTPClient(c.K8sCA, false)
+			if errK8Client != nil {
+				return oauth2.Endpoint{}, nil, errK8Client
 			}
-		default:
-			// OIDC auth source is stateful, so only create it once.
-			endpoint, oidcAuthSource, err := newOIDCAuth(ctx, &oidcConfig{
-				client:        a.clientFunc(),
+
+			return newOpenShiftAuth(ctx, &openShiftConfig{
+				k8sClient:     k8sClient,
+				oauthClient:   a.clientFunc(),
 				issuerURL:     c.IssuerURL,
-				clientID:      c.ClientID,
 				cookiePath:    c.CookiePath,
 				secureCookies: c.SecureCookies,
 			})
-			a.userFunc = func(r *http.Request) (*User, error) {
-				if oidcAuthSource == nil {
-					return nil, fmt.Errorf("OIDC auth source is not intialized")
-				}
-				return oidcAuthSource.authenticate(r)
-			}
-			authSourceFunc = func() (oauth2.Endpoint, loginMethod, error) {
-				return endpoint, oidcAuthSource, err
-			}
 		}
-
-		fallbackEndpoint, fallbackLoginMethod, err := authSourceFunc()
-		if err != nil {
-			steps++
-			if steps > maxSteps {
-				log.Errorf("error contacting auth provider: %v", err)
-				return nil, err
+	default:
+		// OIDC auth source is stateful, so only create it once.
+		endpoint, oidcAuthSource, err := newOIDCAuth(ctx, &oidcConfig{
+			client:        a.clientFunc(),
+			issuerURL:     c.IssuerURL,
+			clientID:      c.ClientID,
+			cookiePath:    c.CookiePath,
+			secureCookies: c.SecureCookies,
+		})
+		a.userFunc = func(r *http.Request) (*User, error) {
+			if oidcAuthSource == nil {
+				return nil, fmt.Errorf("OIDC auth source is not intialized")
 			}
-
-			log.Errorf("error contacting auth provider (retrying in %s): %v", backoff, err)
-
-			time.Sleep(backoff)
-			continue
+			return oidcAuthSource.authenticate(r)
 		}
-
-		a.authFunc = func() (*oauth2.Config, loginMethod) {
-			// rebuild non-pointer struct each time to prevent any mutation
-			baseOAuth2Config := oauth2.Config{
-				ClientID:     c.ClientID,
-				ClientSecret: c.ClientSecret,
-				RedirectURL:  c.RedirectURL,
-				Scopes:       c.Scope,
-				Endpoint:     fallbackEndpoint,
-			}
-
-			currentEndpoint, currentLoginMethod, errAuthSource := authSourceFunc()
-			if errAuthSource != nil {
-				log.Errorf("failed to get latest auth source data: %v", errAuthSource)
-				return &baseOAuth2Config, fallbackLoginMethod
-			}
-
-			baseOAuth2Config.Endpoint = currentEndpoint
-			return &baseOAuth2Config, currentLoginMethod
+		authSourceFunc = func() (oauth2.Endpoint, loginMethod, error) {
+			return endpoint, oidcAuthSource, err
 		}
-
-		return a, nil
 	}
+
+	a.authFunc = func() (*oauth2.Config, loginMethod, error) {
+		// rebuild non-pointer struct each time to prevent any mutation
+		baseOAuth2Config := oauth2.Config{
+			ClientID:     c.ClientID,
+			ClientSecret: c.ClientSecret,
+			RedirectURL:  c.RedirectURL,
+			Scopes:       c.Scope,
+		}
+
+		endpoint, lm, errAuthSource := authSourceFunc()
+		if errAuthSource != nil {
+			return nil, nil, errAuthSource
+		}
+
+		baseOAuth2Config.Endpoint = endpoint
+		return &baseOAuth2Config, lm, nil
+	}
+
+	return a, nil
 }
 
 func newUnstartedAuthenticator(c *Config) (*Authenticator, error) {
@@ -332,17 +307,30 @@ func (a *Authenticator) LoginFunc(w http.ResponseWriter, r *http.Request) {
 		Secure:   a.secureCookies,
 	}
 	http.SetCookie(w, &cookie)
-	http.Redirect(w, r, a.getOAuth2Config().AuthCodeURL(state), http.StatusSeeOther)
+	if oauthConfig, err := a.getOAuth2Config(); err != nil {
+		http.Error(w, fmt.Sprintf("failed to get latest auth source data: %v", err), http.StatusServiceUnavailable)
+	} else {
+		http.Redirect(w, r, oauthConfig.AuthCodeURL(state), http.StatusSeeOther)
+	}
 }
 
 // LogoutFunc cleans up session cookies.
 func (a *Authenticator) LogoutFunc(w http.ResponseWriter, r *http.Request) {
-	a.getLoginMethod().logout(w, r)
+	if lm, err := a.getLoginMethod(); err != nil {
+		http.Error(w, fmt.Sprintf("failed to get latest auth source data: %v", err), http.StatusServiceUnavailable)
+	} else {
+		lm.logout(w, r)
+	}
 }
 
 // GetKubeAdminLogoutURL returns the logout URL for the special kube:admin user in OpenShift
-func (a *Authenticator) GetSpecialURLs() SpecialAuthURLs {
-	return a.getLoginMethod().getSpecialURLs()
+func (a *Authenticator) GetSpecialURLs() (SpecialAuthURLs, error) {
+	lm, err := a.getLoginMethod()
+	if err != nil {
+		return SpecialAuthURLs{}, err
+	}
+
+	return lm.getSpecialURLs(), nil
 }
 
 // CallbackFunc handles OAuth2 callbacks and code/token exchange.
@@ -379,7 +367,13 @@ func (a *Authenticator) CallbackFunc(fn func(loginInfo LoginJSON, successURL str
 			return
 		}
 		ctx := oidc.ClientContext(context.TODO(), a.clientFunc())
-		oauthConfig, lm := a.authFunc()
+		oauthConfig, lm, err := a.authFunc()
+		if err != nil {
+			log.Errorf("failed to get latest auth source data: %v", err)
+			a.redirectAuthError(w, errorInvalidCode, err)
+			return
+		}
+
 		token, err := oauthConfig.Exchange(ctx, code)
 		if err != nil {
 			log.Infof("unable to verify auth code with issuer: %v", err)
@@ -399,14 +393,14 @@ func (a *Authenticator) CallbackFunc(fn func(loginInfo LoginJSON, successURL str
 	}
 }
 
-func (a *Authenticator) getOAuth2Config() *oauth2.Config {
-	oauthConfig, _ := a.authFunc()
-	return oauthConfig
+func (a *Authenticator) getOAuth2Config() (*oauth2.Config, error) {
+	oauthConfig, _, err := a.authFunc()
+	return oauthConfig, err
 }
 
-func (a *Authenticator) getLoginMethod() loginMethod {
-	_, lm := a.authFunc()
-	return lm
+func (a *Authenticator) getLoginMethod() (loginMethod, error) {
+	_, lm, err := a.authFunc()
+	return lm, err
 }
 
 func (a *Authenticator) redirectAuthError(w http.ResponseWriter, authErr string, err error) {

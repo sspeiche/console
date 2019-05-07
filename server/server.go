@@ -261,7 +261,11 @@ func (s *Server) indexHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !s.authDisabled() {
-		specialAuthURLs := s.Auther.GetSpecialURLs()
+		specialAuthURLs, err := s.Auther.GetSpecialURLs()
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed to get latest auth source data: %v", err), http.StatusServiceUnavailable)
+			return
+		}
 		jsg.RequestTokenURL = specialAuthURLs.RequestToken
 		jsg.KubeAdminLogoutURL = specialAuthURLs.KubeAdminLogout
 	}
