@@ -226,7 +226,7 @@ func NewAuthenticator(ctx context.Context, c *Config) (*Authenticator, error) {
 
 		endpoint, lm, errAuthSource := authSourceFunc()
 		if errAuthSource != nil {
-			return nil, nil, errAuthSource
+			return nil, nil, fmt.Errorf("failed to get latest auth source data: %v", errAuthSource)
 		}
 
 		baseOAuth2Config.Endpoint = endpoint
@@ -308,7 +308,8 @@ func (a *Authenticator) LoginFunc(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, &cookie)
 	if oauthConfig, err := a.getOAuth2Config(); err != nil {
-		http.Error(w, fmt.Sprintf("failed to get latest auth source data: %v", err), http.StatusServiceUnavailable)
+		log.Error(err)
+		http.Error(w, err, http.StatusServiceUnavailable)
 	} else {
 		http.Redirect(w, r, oauthConfig.AuthCodeURL(state), http.StatusSeeOther)
 	}
