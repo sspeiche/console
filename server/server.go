@@ -282,10 +282,10 @@ func (s *Server) indexHandler(w http.ResponseWriter, r *http.Request) {
 		jsg.KubeAdminLogoutURL = specialAuthURLs.KubeAdminLogout
 	}
 
-	if s.prometheusProxyEnabled() {
-		jsg.PrometheusBaseURL = proxy.SingleJoiningSlash(s.BaseURL.Path, prometheusProxyEndpoint)
-		jsg.PrometheusTenancyBaseURL = proxy.SingleJoiningSlash(s.BaseURL.Path, prometheusTenancyProxyEndpoint)
-	}
+	// DEV ONLY -- DO NOT MERGE!!
+	jsg.PrometheusBaseURL = "https://prometheus-k8s-openshift-monitoring.apps.spadgett.devcluster.openshift.com/"
+	jsg.PrometheusTenancyBaseURL = "https://prometheus-k8s-openshift-monitoring.apps.spadgett.devcluster.openshift.com/"
+	// DEV ONLY -- DO NOT MERGE!!
 
 	if s.alertManagerProxyEnabled() {
 		jsg.AlertManagerBaseURL = proxy.SingleJoiningSlash(s.BaseURL.Path, alertManagerProxyEndpoint)
