@@ -19,7 +19,6 @@ import {
   GroupVersionKind,
   modelFor,
   referenceForModel,
-  resourceURL,
 } from '../module/k8s';
 import {
   Kebab,
@@ -48,17 +47,7 @@ const { common } = Kebab.factory;
 const menuActions = [...common];
 
 const dataURL = (obj, format='json') => {
-  const serviceModel = modelFor('Service');
-  return resourceURL(serviceModel, {
-    ns: obj.metadata.namespace,
-    name: 'https:reporting-operator:http',
-    path: 'proxy/api/v1/reports/get',
-    queryParams: {
-      name: obj.metadata.name,
-      format,
-      namespace: obj.metadata.namespace,
-    },
-  });
+  return `${window.SERVER_FLAGS.meteringBaseURL}/api/v1/reports/get?name=${obj.metadata.name}&namespace=${obj.metadata.namespace}&format=${format}`;
 };
 
 const ChargebackNavBar: React.SFC<{match: {url: string}}> = props => <div>
