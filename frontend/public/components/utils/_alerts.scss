@@ -1,4 +1,14 @@
 .co-alert {
+  margin-bottom: var(--pf-global--spacer--lg);
+  h4 {
+    line-height: var(--pf-global--LineHeight--md);
+  }
+  p {
+    margin-block-end: 0em;
+  }
+}
+
+.co-scrollable-alert {
   max-height: 75px;
   overflow-x: hidden;
   overflow-y: auto;
