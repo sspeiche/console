@@ -1,22 +1,21 @@
 .co-alert {
   margin-bottom: var(--pf-global--spacer--lg);
   h4 {
+    // PF4 alert and bootstrap styles fight
     line-height: var(--pf-global--LineHeight--md);
-  }
-  p {
-    margin-block-end: 0em;
-  }
-}
-
-.co-scrollable-alert {
-  max-height: 75px;
-  overflow-x: hidden;
-  overflow-y: auto;
-  @media (min-height: $screen-sm-min) {
-    max-height: 150px;
   }
 }
 
 .co-expandable-alert {
   margin-bottom: var(--pf-global--spacer--xl);
+}
+
+.co-scrollable-alert .pf-c-alert__description {
+  max-height: 100px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  @include co-break-word;
+  @media (min-height: $screen-sm-min) {
+    max-height: 200px;
+  }
 }
