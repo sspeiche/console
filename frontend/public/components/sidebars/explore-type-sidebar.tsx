@@ -4,7 +4,25 @@ import * as classNames from 'classnames';
 
 import { getDefinitionKey, getStoredSwagger, K8sKind, SwaggerDefinition, SwaggerDefinitions } from '../../module/k8s';
 import { ResourceSidebarWrapper, sidebarScrollTop } from './resource-sidebar';
+import { TextFilter } from '../factory';
 import { CamelCaseWrap, EmptyBox, LinkifyExternal } from '../utils';
+
+const DefinitionHeader: React.FC<{name: string, definitionType: string, required?: boolean}> = ({name, definitionType, required}) => (
+  <h5 className="co-resource-sidebar-item__header co-break-word">
+    <CamelCaseWrap value={name} />
+    &nbsp;
+    <small>
+      <span className="co-break-word">{definitionType}</span>
+      {required && <> &ndash; required</>}
+    </small>
+  </h5>
+);
+
+const DefinitionDescription: React.FC<{definition: SwaggerDefinition}> = ({definition: {description}}) => {
+  return description
+    ? <p className="co-break-word co-pre-line"><LinkifyExternal>{description}</LinkifyExternal></p>
+    : null;
+};
 
 const getRef = (definition: SwaggerDefinition): string => {
   const ref = definition.$ref || _.get(definition, 'items.$ref');
@@ -18,6 +36,9 @@ export const ExploreType: React.FC<ExploreTypeProps> = (props) => {
   // entry contains the name, description, and path to the definition in the
   // OpenAPI document.
   const [drilldownHistory, setDrilldownHistory] = React.useState([]);
+  const [filterText, setFilterText] = React.useState('');
+  const [filterMatches, setFilterMatches] = React.useState([]);
+
   const {kindObj} = props;
   if (!kindObj) {
     return null;
@@ -27,6 +48,7 @@ export const ExploreType: React.FC<ExploreTypeProps> = (props) => {
   if (!allDefinitions) {
     return null;
   }
+
   const currentSelection = _.last(drilldownHistory);
   // Show the current selected property or the top-level definition for the kind.
   const currentPath = currentSelection ? currentSelection.path : [getDefinitionKey(kindObj, allDefinitions)];
@@ -76,43 +98,99 @@ export const ExploreType: React.FC<ExploreTypeProps> = (props) => {
   // Get the type to display for a property reference.
   const getTypeForRef = (ref: string): string => _.get(allDefinitions, [ref, 'format']) || _.get(allDefinitions, [ref, 'type']);
 
-  return (
-    <React.Fragment>
-      <ol className="breadcrumb">
-        {breadcrumbs.map((crumb, i) => {
-          const isLast = i === breadcrumbs.length - 1;
-          return <li key={i} className={classNames({'active': isLast})}>
-            {isLast
-              ? crumb
-              : <button type="button" className="btn btn-link btn-link--no-btn-default-values" onClick={e => breadcrumbClicked(e, i)}>{crumb}</button>}
-          </li>;
-        })}
-      </ol>
-      {description && <p className="co-break-word co-pre-line"><LinkifyExternal>{description}</LinkifyExternal></p>}
-      {_.isEmpty(currentDefinition.properties)
-        ? <EmptyBox label="Properties" />
-        : <ul className="co-resource-sidebar-list">
-          {_.map(currentDefinition.properties, (definition: SwaggerDefinition, name: string) => {
-            const path = getDrilldownPath(definition, name);
-            const definitionType = definition.type || getTypeForRef(getRef(definition));
-            return (
-              <li key={name} className="co-resource-sidebar-item">
-                <h5 className="co-resource-sidebar-item__header co-break-word">
-                  <CamelCaseWrap value={name} />
-                  &nbsp;
-                  <small>
-                    <span className="co-break-word">{definitionType}</span>
-                    {required.has(name) && <React.Fragment> &ndash; required</React.Fragment>}
-                  </small>
-                </h5>
-                {definition.description && <p className="co-break-word co-pre-line"><LinkifyExternal>{definition.description}</LinkifyExternal></p>}
-                {path && <button type="button" className="btn btn-link btn-link--no-btn-default-values" onClick={e => drilldown(e, name, definition.description, path)}>View Details</button>}
-              </li>
-            );
-          })}
-        </ul>
+  const filterProperties = (result: any[], filterText: string, swaggerPath: string[], propertyPath: string[]) => {
+    const properties: SwaggerDefinition = _.get(allDefinitions, [...swaggerPath, 'properties']) || [];
+    const matches = [];
+    _.each(properties, (definition: SwaggerDefinition, name: string) => {
+      if (_.toLower(name).includes(filterText)) {
+        matches.push({name, definition});
       }
-    </React.Fragment>
+      const nextPath = getDrilldownPath(definition, name);
+      if (nextPath) {
+        filterProperties(result, filterText, nextPath, [...propertyPath, name]);
+      }
+    });
+
+    if (matches.length) {
+      result.push({
+        propertyPath,
+        properties: matches,
+      });
+    }
+  };
+
+  const updateFilter = (filterText: string) => {
+    const result = [];
+    // TODO: Only search is the user types two characters
+    if (filterText.length) {
+      filterProperties(result, _.toLower(filterText), currentPath, [kindObj.kind]);
+    }
+    const sortedResult = _.orderBy(result, ({propertyPath}) => propertyPath.join('.'));
+    setFilterText(filterText);
+    setFilterMatches(sortedResult);
+  };
+
+  return (
+    <>
+      <div className="co-resource-sidebar-filter">
+        <TextFilter
+          defaultValue={filterText}
+          label="by property"
+          onChange={(e) => updateFilter(e.target.value)}
+        />
+      </div>
+      {filterText.length
+        ? _.isEmpty(filterMatches)
+          ? <EmptyBox label="Properties" />
+          : filterMatches.map(({propertyPath, properties}) => (
+            <div key={propertyPath.join('#')}>
+            <ol className="breadcrumb">
+              {propertyPath.map((propertyName: string, i: number) => <li key={i}>{propertyName}</li>)}
+            </ol>
+            <ul className="co-resource-sidebar-list">
+              {properties.map(({name, definition}: {name: string, definition: SwaggerDefinition}) => {
+                const definitionType = definition.type || getTypeForRef(getRef(definition));
+                return (
+                  <li key={name} className="co-resource-sidebar-item">
+                    <DefinitionHeader name={name} definitionType={definitionType} />
+                    <DefinitionDescription definition={definition} />
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))
+        : <>
+          <ol className="breadcrumb">
+            {breadcrumbs.map((crumb, i) => {
+              const isLast = i === breadcrumbs.length - 1;
+              return <li key={i} className={classNames({'active': isLast})}>
+                {isLast
+                  ? crumb
+                  : <button type="button" className="btn btn-link btn-link--no-btn-default-values" onClick={e => breadcrumbClicked(e, i)}>{crumb}</button>}
+              </li>;
+            })}
+          </ol>
+          {description && <p className="co-break-word co-pre-line"><LinkifyExternal>{description}</LinkifyExternal></p>}
+          {_.isEmpty(currentDefinition.properties)
+            ? <EmptyBox label="Properties" />
+            : <ul className="co-resource-sidebar-list">
+              {_.map(currentDefinition.properties, (definition: SwaggerDefinition, name: string) => {
+                const path = getDrilldownPath(definition, name);
+                const definitionType = definition.type || getTypeForRef(getRef(definition));
+                return (
+                  <li key={name} className="co-resource-sidebar-item">
+                    <DefinitionHeader name={name} definitionType={definitionType} required={required.has(name)} />
+                    <DefinitionDescription definition={definition} />
+                    {path && <button type="button" className="btn btn-link btn-link--no-btn-default-values" onClick={e => drilldown(e, name, definition.description, path)}>View Details</button>}
+                  </li>
+                );
+              })}
+            </ul>
+          }
+        </>
+      }
+    </>
   );
 };
 
