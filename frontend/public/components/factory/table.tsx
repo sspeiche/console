@@ -403,11 +403,12 @@ export const Table = connect<TablePropsFromState,TablePropsFromDispatch,TablePro
     }
 
     render() {
-      const {scrollElement, Rows, Row, expand, label, mock, onSelect, selectedResourcesForKind, 'aria-label': ariaLabel, virtualize = true, customData, gridBreakPoint = TableGridBreakpoint.none} = this.props;
-      const {sortBy, columns} = this.state;
+      const {scrollElement, Header, Rows, Row, expand, label, mock, onSelect, selectedResourcesForKind, 'aria-label': ariaLabel, virtualize = true, customData, gridBreakPoint = TableGridBreakpoint.none} = this.props;
+      const {sortBy} = this.state;
       const componentProps: any = _.pick(this.props, ['data', 'filters', 'selected', 'match', 'kindObj']);
       const ariaRowCount = componentProps.data && componentProps.data.length;
       const scrollNode = typeof scrollElement === 'function' ? scrollElement() : scrollElement;
+      const columns = Header(this.props);
       const renderVirtualizedTable = (scrollContainer) => (
         <WindowScroller scrollElement={scrollContainer}>
           {({height, isScrolling, registerChild, onChildScroll, scrollTop}) => (

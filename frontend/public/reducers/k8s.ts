@@ -68,6 +68,30 @@ const loadList = (oldList, resources) => {
   });
 };
 
+const loadTable = (oldTable, resources) => {
+  const existingKeys = new Set(oldTable.keys());
+  return oldTable.withMutations(table => {
+    (resources || []).forEach(r => {
+      const qualifiedName = getQN(r.object);
+      existingKeys.delete(qualifiedName);
+      const next = fromJS(r);
+      const current = table.get(qualifiedName);
+      if (!current || moreRecent(next, current)) {
+        table.set(qualifiedName, next);
+      }
+    });
+    existingKeys.forEach(k => {
+      const r = table.get(k);
+      const metadata = r.getIn(['object', 'metadata']).toJSON();
+      if (!metadata.deletionTimestamp) {
+        // eslint-disable-next-line no-console
+        console.warn(`${metadata.namespace}-${metadata.name} is gone with no deletion timestamp!`);
+      }
+      table.delete(k);
+    });
+  });
+};
+
 export type K8sState = ImmutableMap<string, any>;
 
 export default (state: K8sState, action: K8sAction): K8sState => {
@@ -173,6 +197,18 @@ export default (state: K8sState, action: K8sAction): K8sState => {
       newList = loadList(state.getIn([action.payload.id, 'data']), action.payload.k8sObjects);
       break;
 
+    case ActionType.LoadedTable:
+      if (!state.getIn([action.payload.id, 'data'])) {
+        return state;
+      }
+      // eslint-disable-next-line no-console
+      console.info(`loaded table ${action.payload.id}`);
+      state = state.mergeDeep({
+        [action.payload.id]: {loaded: true, loadError: ''},
+      });
+      newList = loadTable(state.getIn([action.payload.id, 'data']), action.payload.response);
+      break;
+
     case ActionType.UpdateListFromWS:
       newList = state.getIn([action.payload.id, 'data']);
       // k8sObjects is an array of k8s WS Events
@@ -198,6 +234,13 @@ export default (state: K8sState, action: K8sAction): K8sState => {
         return state;
       }
       newList = state.getIn([action.payload.id, 'data']).merge(action.payload.k8sObjects.reduce((map, obj) => map.set(getQN(obj), fromJS(obj)), ImmutableMap()));
+      break;
+    case ActionType.BulkAddTableRowsToList:
+      if (!state.getIn([action.payload.id, 'data'])) {
+        return state;
+      }
+      const rows = _.get(action.payload, 'response.rows', []);
+      newList = state.getIn([action.payload.id, 'data']).merge(rows.reduce((map, row) => map.set(getQN(row.obj), fromJS(row.obj)), ImmutableMap()));
       break;
     case ActionType.Errored:
       if (!state.getIn([action.payload.id, 'data'])) {

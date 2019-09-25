@@ -306,6 +306,7 @@ FireMan_.propTypes = {
 /** @type {React.SFC<{ListComponent: React.ComponentType<any>, kind: string, helpText?: any, namespace?: string, filterLabel?: string, textFilter?: string, title?: string, showTitle?: boolean, rowFilters?: any[], selector?: any, fieldSelector?: string, canCreate?: boolean, createButtonText?: string, createProps?: any, mock?: boolean, badge?: React.ReactNode} >} */
 export const ListPage = withFallback(props => {
   const {
+    asTable,
     autoFocus,
     canCreate,
     canExpand,
@@ -350,6 +351,7 @@ export const ListPage = withFallback(props => {
   createProps = createProps || (createHandler ? {onClick: createHandler} : {to: href});
   const createAccessReview = skipAccessReview ? null : { model: ko, namespace: usedNamespace };
   const resources = [{
+    asTable,
     fieldSelector,
     filters,
     kind,

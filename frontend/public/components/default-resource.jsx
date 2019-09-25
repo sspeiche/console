@@ -25,7 +25,8 @@ const tableColumnClasses = [
   Kebab.columnClass,
 ];
 
-const TableHeader = () => {
+const TableHeader = (props) => {
+  console.log(props);
   return [
     {
       title: 'Name', sortField: 'metadata.name', transforms: [sortable],
@@ -46,23 +47,25 @@ const TableHeader = () => {
 };
 TableHeader.displayName = 'TableHeader';
 
-const TableRowForKind = ({obj, index, key, style, customData}) => {
+const TableRowForKind = ({obj: row, index, key, style, customData}) => {
+  const { metadata } = row.object;
+  const cells = _.take(row.cells, 4);
+  const colWidth = _.floor(12 / (cells.length + 2));
+  const colClass = `col-sm-${colWidth}`;
   return (
-    <TableRow id={obj.metadata.uid} index={index} trKey={key} style={style}>
-      <TableData className={tableColumnClasses[0]}>
-        <ResourceLink kind={customData.kind} name={obj.metadata.name} namespace={obj.metadata.namespace} title={obj.metadata.name} />
+    <TableRow id={metadata.uid} index={index} trKey={key} style={style}>
+      <TableData className={colClass}>
+        <ResourceLink kind={customData.kind} name={metadata.name} namespace={metadata.namespace} title={metadata.name} />
       </TableData>
-      <TableData className={classNames(tableColumnClasses[1], 'co-break-word')}>
-        { obj.metadata.namespace
-          ? <ResourceLink kind="Namespace" name={obj.metadata.namespace} title={obj.metadata.namespace} />
+      <TableData className={colClass}>
+        { metadata.namespace
+          ? <ResourceLink kind="Namespace" name={metadata.namespace} title={metadata.namespace} />
           : 'None'
         }
       </TableData>
-      <TableData className={tableColumnClasses[2]}>
-        { fromNow(obj.metadata.creationTimestamp) }
-      </TableData>
-      <TableData className={tableColumnClasses[3]}>
-        <ResourceKebab actions={menuActions} kind={referenceFor(obj) || customData.kind} resource={obj} />
+      {cells.map((cell, i) => <TableData key={i} className={colClass}>{cell}</TableData>)}
+      <TableData className={Kebab.columnClass}>
+        <ResourceKebab actions={menuActions} kind={referenceFor(row.object) || customData.kind} resource={row.object} />
       </TableData>
     </TableRow>
   );
@@ -92,7 +95,7 @@ export const DefaultList = props => {
 DefaultList.displayName = DefaultList;
 
 export const DefaultPage = props =>
-  <ListPage {...props} ListComponent={DefaultList} canCreate={props.canCreate || _.get(kindObj(props.kind), 'crd')} />;
+  <ListPage {...props} ListComponent={DefaultList} asTable canCreate={props.canCreate || _.get(kindObj(props.kind), 'crd')} />;
 DefaultPage.displayName = 'DefaultPage';
 
 

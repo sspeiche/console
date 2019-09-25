@@ -20,9 +20,11 @@ export enum ActionType {
   ModifyObject = 'modifyObject',
 
   Loaded = 'loaded',
+  LoadedTable = 'loadedTable',
   Errored = 'errored',
 
   BulkAddToList = 'bulkAddToList',
+  BulkAddTableRowsToList = 'bulkAddTableRowsToList',
   FilterList = 'filterList',
   UpdateListFromWS = 'updateListFromWS',
 }
@@ -39,7 +41,9 @@ type K8sEvent = {type: 'ADDED' | 'DELETED' | 'MODIFIED', object: K8sResourceKind
 
 export const updateListFromWS = (id: string, k8sObjects: K8sEvent[]) => action(ActionType.UpdateListFromWS, {id, k8sObjects});
 export const bulkAddToList = (id: string, k8sObjects: K8sResourceKind[]) => action(ActionType.BulkAddToList, {id, k8sObjects});
+export const bulkAddTableRowsToList = (id: string, response) => action(ActionType.BulkAddTableRowsToList, {id, response});
 export const loaded = (id: string, k8sObjects: K8sResourceKind | K8sResourceKind[]) => action(ActionType.Loaded, {id, k8sObjects});
+export const loadedTable = (id: string, response) => action(ActionType.LoadedTable, {id, response});
 export const errored = (id: string, k8sObjects: any) => action(ActionType.Errored, {id, k8sObjects});
 export const modifyObject = (id: string, k8sObjects: K8sResourceKind) => action(ActionType.ModifyObject, {id, k8sObjects});
 
@@ -120,7 +124,7 @@ export const stopK8sWatch = (id: string) => (dispatch: Dispatch) => {
 
 export const startWatchK8sList = (id: string, query: {[key: string]: string}) => action(ActionType.StartWatchK8sList, {id, query});
 
-export const watchK8sList = (id: string, query: {[key: string]: string}, k8skind: K8sKind, extraAction?) => (dispatch, getState) => {
+export const watchK8sList = (id: string, query: {[key: string]: string}, k8skind: K8sKind, extraAction?, asTable?) => (dispatch, getState) => {
   // Only one watch per unique list ID
   if (id in REF_COUNTS) {
     REF_COUNTS[id] += 1;
@@ -137,16 +141,25 @@ export const watchK8sList = (id: string, query: {[key: string]: string}, k8skind
       return;
     }
 
-    const response = await k8sList(k8skind, {...query, limit: paginationLimit, ...(continueToken ? {continue: continueToken} : {})}, true);
+    const response = await k8sList(k8skind, {...query, limit: paginationLimit, ...(continueToken ? {continue: continueToken} : {})}, true, asTable ? {headers: {Accept: 'application/json;as=Table;v=v1beta1;g=meta.k8s.io'}} : {});
 
     if (!REF_COUNTS[id]) {
       return;
     }
 
     if (!continueToken) {
-      [loaded, extraAction].forEach(f => f && dispatch(f(id, response.items)));
+      if (asTable) {
+        dispatch(loadedTable(id, response.rows));
+      } else {
+        dispatch(loaded(id, response.items));
+        extraAction && dispatch(extraAction(id, response.items));
+      }
     } else {
-      dispatch(bulkAddToList(id, response.items));
+      if (asTable) {
+        dispatch(bulkAddTableRowsToList(id, response.rows));
+      } else {
+        dispatch(bulkAddToList(id, response.items));
+      }
     }
 
     if (response.metadata.continue) {
@@ -266,7 +279,9 @@ export const watchAPIServices = () => (dispatch, getState) => {
 const k8sActions = {
   updateListFromWS,
   bulkAddToList,
+  bulkAddTableRowsToList,
   loaded,
+  loadedTable,
   errored,
   modifyObject,
   getResourcesInFlight,

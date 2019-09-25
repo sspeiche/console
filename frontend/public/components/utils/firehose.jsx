@@ -178,10 +178,13 @@ export const Firehose = connect(
         });
       }
 
-      this.firehoses.forEach(({ id, query, k8sKind, isList, name, namespace }) => isList
-        ? watchK8sList(id, query, k8sKind)
-        : watchK8sObject(id, name, namespace, query, k8sKind)
-      );
+      this.firehoses.forEach(({ id, query, k8sKind, isList, name, namespace, asTable }) => {
+        if (isList) {
+          watchK8sList(id, query, k8sKind, null, asTable);
+        } else {
+          watchK8sObject(id, name, namespace, query, k8sKind);
+        }
+      });
     }
 
     clear() {
