@@ -9,7 +9,7 @@ import {
 } from 'react-virtualized';
 import { CSSTransition } from 'react-transition-group';
 import classNames from 'classnames';
-
+import { getLastTime } from '@console/shared';
 import { EventKind } from '../../module/k8s';
 
 // Keep track of seen events so we only animate new ones.
@@ -22,7 +22,7 @@ const measurementCache = new CellMeasurerCache({
 
 class SysEvent extends React.Component<SysEventProps> {
   shouldComponentUpdate(nextProps: SysEventProps) {
-    if (this.props.event.lastTimestamp !== nextProps.event.lastTimestamp) {
+    if (getLastTime(this.props.event) !== getLastTime(nextProps.event)) {
       // Timestamps can be modified because events can be combined.
       return true;
     }

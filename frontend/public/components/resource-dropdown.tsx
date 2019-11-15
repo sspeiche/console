@@ -36,7 +36,6 @@ const blacklistResources = ImmutableSet([
   'extensions/v1beta1.PodSecurityPolicy',
 
   // Prefer core/v1
-  'events.k8s.io/v1beta1.Event',
   'security.openshift.io/v1.SecurityContextConstraints',
 
   // Hide dummy resource

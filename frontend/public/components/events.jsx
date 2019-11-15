@@ -4,7 +4,12 @@ import * as classNames from 'classnames';
 import * as PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
-
+import {
+  getCount,
+  getLastTime,
+  getReportingController,
+  getReportingInstance,
+} from '@console/shared';
 import { namespaceProptype } from '../propTypes';
 import { ResourceListDropdown } from './resource-dropdown';
 import { TextFilter } from './factory';
@@ -41,25 +46,25 @@ export const categoryFilter = (category, { reason }) => {
   return category === 'error' ? isError : !isError;
 };
 
-const kindFilter = (kind, { involvedObject }) => {
-  return kind === 'all' || involvedObject.kind === kind;
+const kindFilter = (kind, { regarding }) => {
+  return kind === 'all' || regarding.kind === kind;
 };
+
+const isKubeletEvent = (event) =>
+  event.reportingController === 'kubernetes.io/kubelet' ||
+  (event.deprecatedSource && event.deprecatedSource.component === 'kubelet');
 
 const Inner = connectToFlags(FLAGS.CAN_LIST_NODE)(
   class Inner extends React.PureComponent {
     render() {
       const { event, flags } = this.props;
-      const {
-        count,
-        firstTimestamp,
-        lastTimestamp,
-        involvedObject: obj,
-        source,
-        message,
-        reason,
-      } = event;
+      const { eventTime, note, reason, regarding: obj } = event;
       const tooltipMsg = `${reason} (${obj.kind})`;
       const isError = categoryFilter('error', event);
+      const lastTime = getLastTime(event);
+      const controller = getReportingController(event);
+      const instance = getReportingInstance(event);
+      const count = getCount(event);
 
       return (
         <div className={classNames('co-sysevent', { 'co-sysevent--error': isError })}>
@@ -84,43 +89,33 @@ const Inner = connectToFlags(FLAGS.CAN_LIST_NODE)(
                     name={obj.namespace}
                   />
                 )}
-                {lastTimestamp && (
-                  <Timestamp className="co-sysevent__timestamp" timestamp={lastTimestamp} />
-                )}
+                {lastTime && <Timestamp className="co-sysevent__timestamp" timestamp={lastTime} />}
               </div>
               <div className="co-sysevent__details">
                 <small className="co-sysevent__source">
-                  Generated from <span>{source.component}</span>
-                  {source.component === 'kubelet' && (
+                  Generated from <span>{controller}</span>
+                  {isKubeletEvent(event) && (
                     <span>
                       {' '}
                       on{' '}
                       {flags[FLAGS.CAN_LIST_NODE] ? (
-                        <Link to={resourcePathFromModel(NodeModel, source.host)}>
-                          {source.host}
-                        </Link>
+                        <Link to={resourcePathFromModel(NodeModel, instance)}>{instance}</Link>
                       ) : (
-                        <>{source.host}</>
+                        <>{instance}</>
                       )}
                     </span>
                   )}
                 </small>
                 {count > 1 && (
                   <small className="co-sysevent__count text-secondary">
-                    {count} times
-                    {firstTimestamp && (
-                      <>
-                        {' '}
-                        in the last{' '}
-                        <Timestamp timestamp={firstTimestamp} simple={true} omitSuffix={true} />
-                      </>
-                    )}
+                    {count} times in the last{' '}
+                    <Timestamp timestamp={eventTime} simple={true} omitSuffix={true} />
                   </small>
                 )}
               </div>
             </div>
 
-            <div className="co-sysevent__message">{message}</div>
+            <div className="co-sysevent__message">{note}</div>
           </div>
         </div>
       );
@@ -374,10 +369,10 @@ class EventStream extends React.Component {
   flushMessages() {
     // In addition to sorting by timestamp, secondarily sort by name so that the order is consistent when events have
     // the same timestamp
-    const sorted = _.orderBy(this.messages, ['lastTimestamp', 'name'], ['desc', 'asc']);
+    const sorted = _.orderBy(this.messages, [getLastTime, 'name'], ['desc', 'asc']);
     const oldestTimestamp = _.min([
       this.state.oldestTimestamp,
-      new Date(_.last(sorted).lastTimestamp),
+      new Date(getLastTime(_.last(sorted))),
     ]);
     sorted.splice(maxMessages);
     this.setState({
@@ -484,15 +479,11 @@ EventStream.propTypes = {
 
 export const ResourceEventStream = ({
   obj: {
-    kind,
-    metadata: { name, namespace, uid },
+    metadata: { namespace, uid },
   },
 }) => (
-  <EventStream
-    fieldSelector={`involvedObject.uid=${uid},involvedObject.name=${name},involvedObject.kind=${kind}`}
-    namespace={namespace}
-    resourceEventStream
-  />
+  // FIXME: the new events API does not support this field selector.
+  <EventStream fieldSelector={`regarding.uid=${uid}`} namespace={namespace} resourceEventStream />
 );
 
 export const ResourcesEventStream = ({ filters, namespace }) => (

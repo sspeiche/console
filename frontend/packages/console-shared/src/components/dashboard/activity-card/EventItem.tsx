@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { AccordionContent, AccordionItem, AccordionToggle } from '@patternfly/react-core';
 import classNames from 'classnames';
-import { RedExclamationCircleIcon } from '@console/shared';
+import { getLastTime, RedExclamationCircleIcon } from '@console/shared';
 import { categoryFilter } from '@console/internal/components/events';
 import { twentyFourHourTime } from '@console/internal/components/utils/datetime';
 import { ResourceIcon } from '@console/internal/components/utils/resource-icon';
@@ -10,13 +10,14 @@ import { EventKind, referenceFor } from '@console/internal/module/k8s';
 
 const propsAreEqual = (prevProps: EventItemProps, nextProps: EventItemProps) =>
   prevProps.event.metadata.uid === nextProps.event.metadata.uid &&
-  prevProps.event.lastTimestamp === nextProps.event.lastTimestamp &&
+  getLastTime(prevProps.event) === getLastTime(nextProps.event) &&
   prevProps.isExpanded === nextProps.isExpanded &&
   prevProps.onToggle === nextProps.onToggle;
 
 const EventItem: React.FC<EventItemProps> = React.memo(({ event, isExpanded, onToggle }) => {
-  const { lastTimestamp, involvedObject, message, reason, metadata } = event;
+  const { regarding, note, reason, metadata } = event;
   const isError = categoryFilter('error', { reason });
+  const lastTime = getLastTime(event);
   const expanded = isExpanded(metadata.uid);
   return (
     <div className="co-recent-item__body">
@@ -31,7 +32,7 @@ const EventItem: React.FC<EventItemProps> = React.memo(({ event, isExpanded, onT
         >
           <div className="co-recent-item__title">
             <div className="co-recent-item__title-timestamp text-secondary">
-              {lastTimestamp ? twentyFourHourTime(new Date(lastTimestamp)) : '-'}
+              {lastTime ? twentyFourHourTime(new Date(lastTime)) : '-'}
             </div>
             <div className="co-recent-item__title-message">
               {isError && (
@@ -39,8 +40,8 @@ const EventItem: React.FC<EventItemProps> = React.memo(({ event, isExpanded, onT
               )}
               {!expanded && (
                 <>
-                  <ResourceIcon kind={involvedObject.kind} />
-                  <div className="co-recent-item__title-message-text">{message}</div>
+                  <ResourceIcon kind={regarding.kind} />
+                  <div className="co-recent-item__title-message-text">{note}</div>
                 </>
               )}
             </div>
@@ -54,15 +55,13 @@ const EventItem: React.FC<EventItemProps> = React.memo(({ event, isExpanded, onT
             <div className="co-recent-item__content-header">
               <ResourceLink
                 className="co-recent-item__content-resourcelink"
-                kind={referenceFor(involvedObject)}
-                namespace={involvedObject.namespace}
-                name={involvedObject.name}
-                title={involvedObject.uid}
+                kind={referenceFor(regarding)}
+                namespace={regarding.namespace}
+                name={regarding.name}
+                title={regarding.uid}
               />
             </div>
-            <div className="co-dashboard-text--small co-recent-item__content-message">
-              {message}
-            </div>
+            <div className="co-dashboard-text--small co-recent-item__content-message">{note}</div>
           </div>
         </AccordionContent>
       </AccordionItem>

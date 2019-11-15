@@ -31,7 +31,7 @@ const matchesInvolvedObject = (
   event: EventKind,
 ): boolean =>
   name &&
-  _.isMatch(event.involvedObject, {
+  _.isMatch(event.regarding, {
     kind,
     name,
     namespace,

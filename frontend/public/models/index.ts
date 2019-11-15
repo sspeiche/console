@@ -295,7 +295,8 @@ export const NodeModel: K8sKind = {
 };
 
 export const EventModel: K8sKind = {
-  apiVersion: 'v1',
+  apiVersion: 'v1beta1',
+  apiGroup: 'events.k8s.io',
   label: 'Event',
   plural: 'events',
   abbr: 'E',
