@@ -65,7 +65,7 @@ export type GridDashboardCard = {
   span?: DashboardCardSpan;
 };
 
-type DashboardGridProps = {
+export type DashboardGridProps = {
   mainCards: GridDashboardCard[];
   leftCards?: GridDashboardCard[];
   rightCards?: GridDashboardCard[];

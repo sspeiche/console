@@ -566,9 +566,7 @@ export const CRDCard: React.SFC<CRDCardProps> = (props) => {
   const reference = referenceForProvidedAPI(crd);
   const model = modelFor(reference);
   const createRoute = () =>
-    `/k8s/ns/${csv.metadata.namespace}/${ClusterServiceVersionModel.plural}/${
-      csv.metadata.name
-    }/${reference}/~new`;
+    `/k8s/ns/${csv.metadata.namespace}/${ClusterServiceVersionModel.plural}/${csv.metadata.name}/${reference}/~new`;
   return (
     <Card>
       <CardHeader>
@@ -799,16 +797,12 @@ export const ClusterServiceVersionsDetailsPage: React.FC<ClusterServiceVersionsD
       providedAPIsFor(obj).map((desc: CRDDescription) => ({
         href: referenceForProvidedAPI(desc),
         name: desc.displayName,
-        component: React.memo(
-          () => (
-            <ProvidedAPIPage
-              csv={obj}
-              kind={referenceForProvidedAPI(desc)}
-              namespace={obj.metadata.namespace}
-            />
-          ),
-          _.isEqual,
-        ),
+        component: ProvidedAPIPage,
+        props: {
+          csv: obj,
+          kind: referenceForProvidedAPI(desc),
+          namespace: obj.metadata.namespace,
+        },
       })),
     );
   };

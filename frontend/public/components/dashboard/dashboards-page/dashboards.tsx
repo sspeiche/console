@@ -9,6 +9,7 @@ import { OverviewDashboard } from './overview-dashboard/overview-dashboard';
 import { HorizontalNav, PageHeading, LoadingBox, Page, AsyncComponent } from '../../utils';
 import Dashboard from '@console/shared/src/components/dashboard/Dashboard';
 import DashboardGrid, {
+  DashboardGridProps,
   GridPosition,
   GridDashboardCard,
 } from '@console/shared/src/components/dashboard/DashboardGrid';
@@ -29,6 +30,12 @@ const getCardsOnPosition = (cards: DashboardsCard[], position: GridPosition): Gr
       span: c.properties.span,
     }));
 
+const DashboardTab: React.FC<DashboardGridProps> = (gridProps) => (
+  <Dashboard>
+    <DashboardGrid {...gridProps} />
+  </Dashboard>
+);
+
 const getPluginTabPages = (flags: FlagsObject): Page[] => {
   const cards = plugins.registry
     .getDashboardsCards()
@@ -41,15 +48,12 @@ const getPluginTabPages = (flags: FlagsObject): Page[] => {
       return {
         href: tab.properties.id,
         name: tab.properties.title,
-        component: () => (
-          <Dashboard>
-            <DashboardGrid
-              mainCards={getCardsOnPosition(tabCards, GridPosition.MAIN)}
-              leftCards={getCardsOnPosition(tabCards, GridPosition.LEFT)}
-              rightCards={getCardsOnPosition(tabCards, GridPosition.RIGHT)}
-            />
-          </Dashboard>
-        ),
+        component: DashboardTab,
+        props: {
+          mainCards: getCardsOnPosition(tabCards, GridPosition.MAIN),
+          leftCards: getCardsOnPosition(tabCards, GridPosition.LEFT),
+          rightCards: getCardsOnPosition(tabCards, GridPosition.RIGHT),
+        },
       };
     });
 };

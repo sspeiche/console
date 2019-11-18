@@ -44,6 +44,7 @@ export type Page = {
   path?: string;
   name: string;
   component?: React.ComponentType<any>;
+  props?: any;
 };
 
 type NavFactory = { [name: string]: (c?: React.ComponentType<any>) => Page };
@@ -204,11 +205,13 @@ export const HorizontalNav: React.FC<HorizontalNavProps> = React.memo((props) =>
   const pages = props.pages || props.pagesFor(_.get(props.obj, 'data'));
   const routes = pages.map((p) => {
     const path = `${props.match.url}/${p.path || p.href}`;
+    const pageProps = p.props || {};
     const render = (params) => {
       return (
         <p.component
           {...componentProps}
           {...extraResources}
+          {...pageProps}
           params={params}
           customData={props.customData}
         />
