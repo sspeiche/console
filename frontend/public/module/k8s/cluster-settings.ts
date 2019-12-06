@@ -28,8 +28,8 @@ export const getAvailableClusterUpdates = (cv: ClusterVersionKind): ClusterUpdat
 };
 
 export const getAvailableClusterChannels = () => ({
-  'stable-4.3': 'stable-4.3',
-  'fast-4.3': 'fast-4.3',
+  'stable-4.4': 'stable-4.4',
+  'fast-4.4': 'fast-4.4',
 });
 
 export const getDesiredClusterVersion = (cv: ClusterVersionKind): string => {
