@@ -2,6 +2,7 @@ import * as _ from 'lodash-es';
 import * as React from 'react';
 import { Helmet } from 'react-helmet';
 import { connect } from 'react-redux';
+import LazyLoad from 'react-lazyload';
 
 import ErrorAlert from '@console/shared/src/components/alerts/error';
 import Dashboard from '@console/shared/src/components/dashboard/Dashboard';
@@ -231,7 +232,9 @@ const Board: React.FC<BoardProps> = ({ board, patchVariable, pollInterval, times
       {_.map(rows, (row, i) => (
         <div className="row" key={i}>
           {_.map(row.panels, (panel, j) => (
-            <Card key={j} panel={panel} pollInterval={pollInterval} timespan={timespan} />
+            <LazyLoad unmountIfInvisible scrollContainer="#content-scrollable">
+              <Card key={j} panel={panel} pollInterval={pollInterval} timespan={timespan} />
+            </LazyLoad>
           ))}
         </div>
       ))}
