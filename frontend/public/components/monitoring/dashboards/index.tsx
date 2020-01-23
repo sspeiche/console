@@ -5,7 +5,6 @@ import { Helmet } from 'react-helmet';
 import { connect } from 'react-redux';
 import { Map as ImmutableMap } from 'immutable';
 
-import ErrorAlert from '@console/shared/src/components/alerts/error';
 import Dashboard from '@console/shared/src/components/dashboard/Dashboard';
 import DashboardCard from '@console/shared/src/components/dashboard/dashboard-card/DashboardCard';
 import DashboardCardBody from '@console/shared/src/components/dashboard/dashboard-card/DashboardCardBody';
@@ -13,18 +12,21 @@ import DashboardCardHeader from '@console/shared/src/components/dashboard/dashbo
 import DashboardCardTitle from '@console/shared/src/components/dashboard/dashboard-card/DashboardCardTitle';
 
 import * as UIActions from '../../../actions/ui';
-import { k8sBasePath } from '../../../module/k8s';
+import { coFetchJSON } from '../../../co-fetch';
+import { ConfigMapModel } from '../../../models';
+import { ConfigMapKind, k8sList } from '../../../module/k8s';
 import { ErrorBoundaryFallback } from '../../error';
 import { RootState } from '../../../redux';
 import { getPrometheusURL, PrometheusEndpoint } from '../../graphs/helpers';
-import { Dropdown, history, LoadingInline, useSafeFetch } from '../../utils';
+import { Dropdown, LoadError, useSafeFetch } from '../../utils';
+import { setQueryArgument } from '../../utils/router';
 import { parsePrometheusDuration } from '../../utils/datetime';
 import { withFallback } from '../../utils/error-boundary';
 import BarChart from './bar-chart';
 import Graph from './graph';
 import SingleStat from './single-stat';
 import Table from './table';
-import { Panel } from './types';
+import { GranafaDashboard, Panel, TemplateVariable } from './types';
 
 const evaluateTemplate = (s: string, variables: VariablesMap) =>
   _.reduce(
@@ -84,21 +86,6 @@ const defaultTimespan = '30m';
 const pollOffText = 'Off';
 const pollIntervalOptions = [pollOffText, '15s', '30s', '1m', '5m', '15m', '30m', '1h', '2h', '1d'];
 const defaultPollInterval = '30s';
-
-// TODO: Dynamically load the list of dashboards
-const boards = [
-  'etcd',
-  'k8s-resources-cluster',
-  'k8s-resources-namespace',
-  'k8s-resources-workloads-namespace',
-  'k8s-resources-node',
-  'k8s-resources-pod',
-  'k8s-resources-workload',
-  'cluster-total',
-  'prometheus',
-  'node-cluster-rsrc-use',
-  'node-rsrc-use',
-];
 
 // Matches Prometheus labels surrounded by {{ }} in the graph legend label templates
 const legendTemplateOptions = { interpolate: /{{([a-zA-Z_][a-zA-Z0-9_]*)}}/g };
@@ -177,9 +164,6 @@ const Card = connect(({ UI }: RootState) => ({
 }))(Card_);
 
 const Board: React.FC<BoardProps> = ({ board, patchVariable, pollInterval, timespan }) => {
-  const [data, setData] = React.useState();
-  const [error, setError] = React.useState<string>();
-
   const safeFetch = React.useCallback(useSafeFetch(), []);
 
   const loadVariableValues = React.useCallback(
@@ -198,56 +182,29 @@ const Board: React.FC<BoardProps> = ({ board, patchVariable, pollInterval, times
   );
 
   React.useEffect(() => {
-    if (!board) {
-      return;
-    }
-    setData(undefined);
-    setError(undefined);
-    const path = `${k8sBasePath}/api/v1/namespaces/openshift-monitoring/configmaps/grafana-dashboard-${board}`;
-    safeFetch(path)
-      .then((response) => {
-        const json = _.get(response, ['data', `${board}.json`]);
-        if (!json) {
-          setError('Dashboard definition JSON not found');
-        } else {
-          const newData = JSON.parse(json);
-          setData(newData);
-
-          const newVars = _.get(newData, 'templating.list') as TemplateVariable[];
-          const optionsVars = _.filter(newVars, (v) => v.type === 'query' || v.type === 'interval');
-
-          _.each(optionsVars, (v) => {
-            if (v.options.length === 1) {
-              patchVariable(v.name, { value: v.options[0].value });
-            } else if (v.options.length > 1) {
-              const options = _.map(v.options, 'value');
-              const selected = _.find(v.options, { selected: true });
-              const value = (selected || v.options[0]).value;
-              patchVariable(v.name, { options, value });
-            } else if (!_.isEmpty(v.query)) {
-              loadVariableValues(v.name, v.query);
-            }
-          });
-        }
-      })
-      .catch((err) => {
-        if (err.name !== 'AbortError') {
-          setError(_.get(err, 'json.error', err.message));
-        }
-      });
-  }, [board, loadVariableValues, patchVariable, safeFetch]);
+    const newVars: TemplateVariable[] = board?.templating?.list || [];
+    const optionsVars = newVars.filter(
+      (v: TemplateVariable) => v.type === 'query' || v.type === 'interval',
+    );
+    optionsVars.forEach((v: TemplateVariable) => {
+      if (v.options.length === 1) {
+        patchVariable(v.name, { value: v.options[0].value });
+      } else if (v.options.length > 1) {
+        const options = _.map(v.options, 'value');
+        const selected = _.find(v.options, { selected: true });
+        const value = (selected || v.options[0]).value;
+        patchVariable(v.name, { options, value });
+      } else if (!_.isEmpty(v.query)) {
+        loadVariableValues(v.name, v.query);
+      }
+    });
+  }, [board, loadVariableValues, patchVariable]);
 
   if (!board) {
     return null;
   }
-  if (error) {
-    return <ErrorAlert message={error} />;
-  }
-  if (!data) {
-    return <LoadingInline />;
-  }
 
-  const rows = _.isEmpty(data.rows) ? [{ panels: data.panels }] : data.rows;
+  const rows = _.isEmpty(board.rows) ? [{ panels: board.panels }] : board.rows;
 
   return (
     <>
@@ -266,28 +223,78 @@ const MonitoringDashboardsPage_: React.FC<MonitoringDashboardsPageProps> = ({
   clearVariables,
   deleteAll,
   patchVariable,
-  match,
 }) => {
-  const { board } = match.params;
-
   // Clear queries on unmount
   React.useEffect(() => deleteAll, [deleteAll]);
 
+  const [boards, setBoards] = React.useState<DashboardMap>({});
+  const [loadError, setLoadError] = React.useState('');
   const [pollInterval, setPollInterval] = React.useState(
     parsePrometheusDuration(defaultPollInterval),
   );
   const [timespan, setTimespan] = React.useState(parsePrometheusDuration(defaultTimespan));
 
+  React.useEffect(() => {
+    const updateBoards = (items: ConfigMapKind[]) => {
+      const updatedBoards: DashboardMap = (items || []).reduce(
+        (acc: DashboardMap, item: ConfigMapKind) => {
+          try {
+            // Assumes the config map only has one value, which is the dashboard JSON.
+            const data: DashboardDefinition = JSON.parse(Object.values(item.data)[0]);
+            if (!data.title) {
+              data.title = item.metadata.name;
+            }
+            acc[item.metadata.name] = data;
+          } catch (e) {
+            // eslint-disable-next-line no-console
+            console.error('Error parsing board JSON', e);
+          }
+          return acc;
+        },
+        {},
+      );
+
+      setBoards(updatedBoards);
+    };
+
+    coFetchJSON('/api/console/monitoring-dashboard-config')
+      .then(({ items }: { items: ConfigMapKind[] }) => updateBoards(items))
+      .catch(() =>
+        k8sList(ConfigMapModel, {
+          ns: 'openshift-config-managed',
+          labelSelector: {
+            'console.openshift.io/dashboard': 'true',
+          },
+        }).then(updateBoards),
+      )
+      .catch(({ message = 'An error occurred' }) => setLoadError(message));
+  }, []);
+
+  const orderedBoards = _.sortBy(
+    _.map(boards, ({ title }: DashboardDefinition, key: string) => ({ title, key })),
+    ({ title }: { title: string; key: string }) => title.toLowerCase(),
+  );
+  const sp = new URLSearchParams(window.location.search);
+  const defaultBoard = orderedBoards?.[0]?.key;
+  if (defaultBoard && !sp.has('board')) {
+    setQueryArgument('board', defaultBoard);
+  }
+  const board = sp.get('board');
   const setBoard = (newBoard: string) => {
     if (newBoard !== board) {
       clearVariables();
-      history.replace(`/monitoring/dashboards/${newBoard}`);
+      setQueryArgument('board', newBoard);
     }
   };
 
-  if (!board && boards?.[0]) {
-    setBoard(boards[0]);
-    return null;
+  if (loadError) {
+    return (
+      <LoadError
+        message={loadError}
+        label="Dashboards"
+        className="loading-box loading-box__errored"
+      />
+    );
   }
 
   return (
@@ -315,18 +322,23 @@ const MonitoringDashboardsPage_: React.FC<MonitoringDashboardsPageProps> = ({
         </div>
         <h1 className="co-m-pane__heading">Dashboards</h1>
         <div className="monitoring-dashboards__variables">
-          <VariableDropdown
-            onChange={setBoard}
-            options={boards}
-            selected={board}
-            title="Board Type"
-          />
+          <div className="form-group monitoring-dashboards__dropdown-wrap">
+            <label>Board Type</label>
+            <Dropdown
+              items={orderedBoards.reduce((acc, { key, title }) => {
+                acc[key] = title;
+                return acc;
+              }, {})}
+              onChange={setBoard}
+              selectedKey={board}
+            />
+          </div>
           <AllVariableDropdowns />
         </div>
       </div>
       <Dashboard>
         <Board
-          board={board}
+          board={boards[board]}
           patchVariable={patchVariable}
           pollInterval={pollInterval}
           timespan={timespan}
@@ -341,11 +353,8 @@ const MonitoringDashboardsPage = connect(null, {
   patchVariable: UIActions.monitoringDashboardsPatchVariable,
 })(MonitoringDashboardsPage_);
 
-type TemplateVariable = {
-  name: string;
-  options: { selected: boolean; value: string }[];
-  query: string;
-  type: string;
+type DashboardMap = {
+  [key: string]: DashboardDefinition;
 };
 
 type Variable = {
@@ -364,7 +373,7 @@ type VariableDropdownProps = {
 };
 
 type BoardProps = {
-  board: string;
+  board: DashboardDefinition;
   patchVariable: (key: string, patch: Variable) => undefined;
   pollInterval: null | number;
   timespan: number;
@@ -386,7 +395,6 @@ type MonitoringDashboardsPageProps = {
   clearVariables: () => undefined;
   deleteAll: () => undefined;
   patchVariable: (key: string, patch: Variable) => undefined;
-  match: any;
 };
 
 export default withFallback(MonitoringDashboardsPage, ErrorBoundaryFallback);
